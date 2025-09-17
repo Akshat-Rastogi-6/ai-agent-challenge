@@ -2,6 +2,6 @@
 __pycache__/
 *.pyc
 .env
-.pytest_cache__/
+.pytest_cache/
 instance/
 migrations/
