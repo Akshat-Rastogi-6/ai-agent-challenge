@@ -23,8 +23,8 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import START, END, StateGraph
 
 load_dotenv(".env")
-os.environ['GOOGLE_API_KEY'] = "AIzaSyDt4a3N3u4tBMout2uGs3ubb87HBfFZagA" 
-os.environ["LANGCHAIN_API_KEY"] = "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"
+os.environ['GOOGLE_API_KEY'] = os.getenv("GOOGLE_API_KEY")
+os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY")
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 CUSTOM_DIR = PROJECT_ROOT / "custom_parsers"
