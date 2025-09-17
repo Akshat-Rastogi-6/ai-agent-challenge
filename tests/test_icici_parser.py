@@ -6,7 +6,7 @@ import pytest
 
 DATA_DIR = Path("data") / "icici"
 PDF_PATH = DATA_DIR / "icici sample.pdf"
-CSV_DIR = DATA_DIR / "result.csv"
+CSV_PATH = DATA_DIR / "result.csv"
 
 def test_icici_parser_strict():
     mod = importlib.import_module("custom_parsers.icici_parser")
@@ -14,7 +14,9 @@ def test_icici_parser_strict():
 
     actual_df = mod.parse(str(PDF_PATH))
 
-    expected_df = pd.read_csv(CSV_DIR)
+    expected_df = pd.read_csv(CSV_PATH)  # ensure this points to the file, not a dir
+    expected_df["Date"] = pd.to_datetime(expected_df["Date"], dayfirst=True, errors="coerce")
+
 
     assert list(actual_df.columns) == list(expected_df.columns), (
         f"Columns differ. \n Exepcted: {list(expected_df.columns)}\nActual:   {list(actual_df.columns)}"
