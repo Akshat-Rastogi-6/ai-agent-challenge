@@ -6,15 +6,21 @@ Coding agent that generates custom parsers for bank statement PDFs and evaluates
 
 ## Quickstart (5 steps)
 
-1) Clone and enter the project
-- PowerShell:
-  - `git clone https://github.com/<your-username>/ai-agent-challenge.git`
-  - `cd ai-agent-challenge`
+1. # Clone the specific branch
+git clone --branch Final_Chnages https://github.com/Akshat-Rastogi-6/ai-agent-challenge.git
 
-2) Create a virtual environment and install dependencies
-- `py -3 -m venv .venv`
-- `.\.venv\Scripts\Activate.ps1`
-- `pip install -r requirements.txt`
+# Change directory to the cloned repo
+cd ai-agent-challenge
+
+2. # Create a virtual environment using Python 3.11
+ py -m venv .venv
+
+# Activate the virtual environment
+source .venv/Scripts/activate
+
+# Install requirements
+pip install -r requirements.txt
+
 
 3) Configure API keys
 - Create a `.env` file in the project root with:
