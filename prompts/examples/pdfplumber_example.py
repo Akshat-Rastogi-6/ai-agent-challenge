@@ -5,44 +5,40 @@ EXPECTED_COLS = ["Date", "Description", "Debit Amt", "Credit Amt", "Balance"]
 
 def parse(pdf_path: str) -> pd.DataFrame:
     try:
-        import camelot
-        tables = camelot.read_pdf(pdf_path, pages="all", flavor="stream")
-        if not tables:
-            raise ValueError("No tables detected in PDF; try different flavor or pdfplumber fallback")
-        frames = [t.df for t in tables if not t.df.empty]
-        if not frames:
-            raise ValueError("Extracted tables are empty")
-        raw = pd.concat(frames, ignore_index=True)
-    except ImportError:
-        try:
-            import pdfplumber
-            rows = []
-            with pdfplumber.open(pdf_path) as pdf:
-                for page in pdf.pages:
-                    tables = page.extract_tables() or []
-                    for table in tables:
-                        for row in table:
-                            rows.append([("" if c is None else str(c).strip()) for c in row])
-            if not rows:
-                raise ValueError("No tables extracted via pdfplumber; need tuned parsing")
-            raw = pd.DataFrame(rows)
-            raw = raw.replace(r"^\s*$", pd.NA, regex=True)
-            raw = raw.dropna(how="all", axis=0).dropna(how="all", axis=1)
-            raw = raw.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+        import pdfplumber  # type: ignore
+    except Exception as e:
+        raise ImportError("pdfplumber not installed or failed to import") from e
 
-        except ImportError as e:
-            raise ImportError("Neither Camelot nor pdfplumber are installed") from e
+    # Extract all tables from all pages
+    rows: list[list[str]] = []
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            tables = page.extract_tables() or []
+            for table in tables:
+                for row in table:
+                    # Normalize cells to stripped strings; keep empty cells as ""
+                    rows.append([("" if c is None else str(c).strip()) for c in row])
 
-    raw = raw.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+    if not rows:
+        raise ValueError("No tables extracted via pdfplumber; need tuned parsing")
+
+    raw = pd.DataFrame(rows)
+
+    # Treat empty strings as missing for dropping fully empty rows/cols
+    raw = raw.replace(r"^\s*$", pd.NA, regex=True)
     raw = raw.dropna(how="all", axis=0).dropna(how="all", axis=1)
+    # Re-strip after NA cleanup (keeps symmetry with camelot example)
+    raw = raw.applymap(lambda x: x.strip() if isinstance(x, str) else x)
 
-    header_tokens = None
+    # Use first row as header if all string-like; then remove repeated header rows
+    header_tokens: list[str] | None = None
     if raw.shape[0] > 1 and all(isinstance(x, str) and x.strip() for x in raw.iloc[0].tolist()):
         header_tokens = [str(c).strip() for c in raw.iloc[0].tolist()]
         raw.columns = header_tokens
         raw = raw.iloc[1:].reset_index(drop=True)
 
     if header_tokens:
+        # Drop subsequent rows that exactly repeat the header (multi-page repeated headers)
         duplicate_header_mask = raw.apply(
             lambda r: [("" if v is None else str(v).strip()) for v in r.tolist()] == header_tokens,
             axis=1,
@@ -50,6 +46,7 @@ def parse(pdf_path: str) -> pd.DataFrame:
         if duplicate_header_mask.any():
             raw = raw.loc[~duplicate_header_mask].reset_index(drop=True)
 
+    # Map header aliases to expected columns
     aliases = {
         "Txn Date": "Date",
         "Transaction Date": "Date",
@@ -64,18 +61,20 @@ def parse(pdf_path: str) -> pd.DataFrame:
         "Balance Amount": "Balance",
     }
 
-    rename_map = {}
+    rename_map: dict[str, str] = {}
     for c in raw.columns:
         tgt = aliases.get(c)
         if tgt in EXPECTED_COLS:
             rename_map[c] = tgt
     df = raw.rename(columns=rename_map)
 
+    # Ensure exact columns and order
     for col in EXPECTED_COLS:
         if col not in df.columns:
             df[col] = pd.NA
     df = df[EXPECTED_COLS]
 
+    # Normalize types
     if "Date" in df.columns:
         try:
             df["Date"] = pd.to_datetime(df["Date"], errors="coerce", dayfirst=True)
